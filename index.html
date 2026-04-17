@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<title>Black Swan Monitor — Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="description" content="Cross-asset risk & allocation console with live crypto data." />
+
+<!-- Tailwind CDN (play cdn: generates classes on the fly) -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- React, ReactDOM, Recharts (UMD) -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script crossorigin src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+
+<!-- Babel standalone (runtime JSX compilation) -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<style>
+  html, body, #root { height: 100%; margin: 0; overflow: hidden; font-family: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI", Roboto, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="display:flex;height:100vh;align-items:center;justify-content:center;background:linear-gradient(135deg,#c4b5fd,#fbcfe8,#fcd34d);font-size:18px;color:#334155">
+    <div>Loading Black Swan Monitor…</div>
+  </div>
+</div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+const {
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  RadialBarChart, RadialBar, AreaChart, Area, ReferenceLine,
+} = Recharts;
+
+const PAGES = [
+  { id: 0, name: "Black Swan Alert",  short: "1· Alert",      icon: "⚠️" },
+  { id: 1, name: "Global Money Flow", short: "2· Flow",       icon: "💸" },
+  { id: 2, name: "Historical Compare",short: "3· History",    icon: "📜" },
+  { id: 3, name: "Asset Allocation",  short: "4· Allocation", icon: "🎯" },
+  { id: 4, name: "Market Cycle",      short: "5· Cycle",      icon: "🔄" },
+];
+
+const Card = ({ children, className = "" }) => (
+  <div className={`rounded-2xl bg-white/70 backdrop-blur-sm shadow-lg border border-white/40 p-4 ${className}`}>
+    {children}
+  </div>
+);
+
+const SectionTitle = ({ children, sub }) => (
+  <div className="mb-2">
+    <div className="text-lg font-bold text-slate-800">{children}</div>
+    {sub && <div className="text-xs text-slate-500">{sub}</div>}
+  </div>
+);
+
+/* =============== PAGE 1 — ALERT =============== */
+function PageAlert({ live }) {
+  const components = [
+    { name: "Volatility (VIX proxy)",    value: 62, weight: 0.22, note: "สูงกว่าค่าเฉลี่ย 10 ปี" },
+    { name: "Yield Curve (10Y-2Y)",       value: 71, weight: 0.18, note: "Inverted → คลี่คลาย (steepening)" },
+    { name: "Credit Spreads (HY)",        value: 48, weight: 0.18, note: "ยังไม่กระชาก แต่ค่อยๆ ขยับขึ้น" },
+    { name: "Market Breadth",             value: 66, weight: 0.14, note: "นำโดยหุ้นใหญ่ไม่กี่ตัว" },
+    { name: "Dollar Liquidity",           value: 55, weight: 0.12, note: "Fed กำลังลด QT" },
+    { name: "Crypto Fear & Greed",        value: live.fearGreed ?? 50, weight: 0.08, note: live.fearGreedLabel || "—" },
+    { name: "Geopolitical Risk Index",    value: 74, weight: 0.08, note: "สูงสุดตั้งแต่ 2022" },
+  ];
+  const composite = Math.round(components.reduce((s, c) => s + c.value * c.weight, 0));
+  const level =
+    composite < 30 ? { label: "CALM", color: "emerald", emoji: "🟢" } :
+    composite < 50 ? { label: "WATCH", color: "lime", emoji: "🟡" } :
+    composite < 65 ? { label: "ELEVATED", color: "amber", emoji: "🟠" } :
+    composite < 80 ? { label: "HIGH RISK", color: "rose", emoji: "🔴" } :
+                     { label: "BLACK SWAN", color: "fuchsia", emoji: "⚫" };
+  const gaugeData = [{ name: "risk", value: composite, fill: "url(#riskGrad)" }];
+
+  return (
+    <div className="grid grid-cols-12 gap-3 h-full">
+      <Card className="col-span-4 flex flex-col">
+        <SectionTitle sub="ถ่วงน้ำหนัก 7 ปัจจัย · composite indicator">Black Swan Risk Score</SectionTitle>
+        <div className="relative flex-1 min-h-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadialBarChart innerRadius="70%" outerRadius="100%" startAngle={210} endAngle={-30} data={gaugeData}>
+              <defs>
+                <linearGradient id="riskGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="50%" stopColor="#f59e0b" />
+                  <stop offset="100%" stopColor="#ef4444" />
+                </linearGradient>
+              </defs>
+              <RadialBar background={{ fill: "#e2e8f0" }} dataKey="value" cornerRadius={20} />
+            </RadialBarChart>
+          </ResponsiveContainer>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <div className="text-6xl font-black text-slate-800">{composite}</div>
+            <div className={`mt-1 px-3 py-1 rounded-full text-sm font-bold text-white bg-gradient-to-r from-${level.color}-400 to-${level.color}-600`}>
+              {level.emoji} {level.label}
+            </div>
+          </div>
+        </div>
+        <div className="mt-2 text-xs text-slate-600 text-center">
+          {composite >= 65 ? "⚠️ แนะนำลดความเสี่ยง · เพิ่มน้ำหนักเงินสด/ทอง/พันธบัตรสั้น"
+            : composite >= 50 ? "👀 เฝ้าระวัง · พิจารณา hedge บางส่วน"
+            : "✅ สถานการณ์ยังปกติ · คงพอร์ตตามแผน"}
+        </div>
+      </Card>
+
+      <Card className="col-span-8">
+        <SectionTitle sub="สีแดงยิ่งเข้ม = ยิ่งเสี่ยง">ส่วนประกอบของสัญญาณ</SectionTitle>
+        <div className="grid grid-cols-2 gap-2">
+          {components.map((c) => {
+            const tone = c.value < 40 ? "from-emerald-400 to-emerald-600"
+                       : c.value < 60 ? "from-amber-400 to-amber-600"
+                       : c.value < 75 ? "from-orange-400 to-orange-600"
+                       :                "from-rose-500 to-rose-700";
+            return (
+              <div key={c.name} className="bg-white/60 rounded-xl p-2 border border-white/60">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-700">{c.name}</span>
+                  <span className="text-sm font-black text-slate-900">{c.value}</span>
+                </div>
+                <div className="h-2 bg-slate-200 rounded-full mt-1 overflow-hidden">
+                  <div className={`h-full bg-gradient-to-r ${tone}`} style={{ width: `${c.value}%` }} />
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{c.note} · น้ำหนัก {(c.weight*100).toFixed(0)}%</div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white rounded-xl p-2 text-center">
+            <div className="text-[10px] opacity-80">Prob. 10%+ drawdown (3M)</div>
+            <div className="text-2xl font-black">{(composite * 0.6).toFixed(0)}%</div>
+          </div>
+          <div className="bg-gradient-to-br from-orange-500 to-rose-500 text-white rounded-xl p-2 text-center">
+            <div className="text-[10px] opacity-80">Recession signal (12M)</div>
+            <div className="text-2xl font-black">{Math.min(99, composite + 5)}%</div>
+          </div>
+          <div className="bg-gradient-to-br from-cyan-500 to-blue-500 text-white rounded-xl p-2 text-center">
+            <div className="text-[10px] opacity-80">Safe-haven demand</div>
+            <div className="text-2xl font-black">{composite >= 65 ? "HIGH" : composite >= 50 ? "MED" : "LOW"}</div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* =============== PAGE 2 — MONEY FLOW =============== */
+const TickerCard = ({ title, value, change, color, live, unit = "%" }) => {
+  const up = (change ?? 0) >= 0;
+  return (
+    <div className={`rounded-xl bg-gradient-to-br from-${color}-400 to-${color}-600 text-white p-2 flex flex-col justify-between relative overflow-hidden`}>
+      {live && <span className="absolute top-1 right-1 text-[9px] bg-white/30 px-1 rounded-full">LIVE</span>}
+      <div className="text-[10px] opacity-90">{title}</div>
+      <div className="text-xl font-black leading-tight">{value ?? "..."}</div>
+      <div className={`text-xs font-bold ${up ? "text-emerald-100" : "text-rose-100"}`}>
+        {change != null ? `${up ? "▲" : "▼"} ${Math.abs(change).toFixed(2)}${unit}` : "—"}
+      </div>
+    </div>
+  );
+};
+
+function PageFlow({ live }) {
+  const flow1W = [
+    { asset: "US Stocks",    flow: -1.2 },
+    { asset: "EU Stocks",    flow: -0.4 },
+    { asset: "EM Stocks",    flow:  0.8 },
+    { asset: "US Treasuries",flow:  2.1 },
+    { asset: "IG Credit",    flow:  0.6 },
+    { asset: "HY Credit",    flow: -0.9 },
+    { asset: "Gold",         flow:  1.8 },
+    { asset: "Crypto",       flow: (live.btcChange7d ?? 0) > 0 ? 1.3 : -0.7 },
+    { asset: "Commodities",  flow:  0.4 },
+    { asset: "USD Cash",     flow:  1.1 },
+  ];
+  const ytd = [
+    { asset: "Gold",       ret: 18.2 },
+    { asset: "BTC",        ret: live.btcChange1y ?? 42 },
+    { asset: "US Stocks",  ret: 6.1 },
+    { asset: "EM Stocks",  ret: 9.5 },
+    { asset: "IG Bonds",   ret: 2.4 },
+    { asset: "HY Bonds",   ret: 1.1 },
+    { asset: "USD Cash",   ret: 4.2 },
+    { asset: "EU Stocks",  ret: 3.8 },
+  ];
+
+  return (
+    <div className="grid grid-cols-12 grid-rows-6 gap-3 h-full">
+      <Card className="col-span-7 row-span-4">
+        <SectionTitle sub="บวก = เงินไหลเข้า · ลบ = ไหลออก (% AUM · 7D)">Money Flow — Cross-asset 7 วัน</SectionTitle>
+        <ResponsiveContainer width="100%" height="85%">
+          <BarChart data={flow1W} layout="vertical" margin={{ left: 40 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis type="number" stroke="#64748b" />
+            <YAxis type="category" dataKey="asset" stroke="#64748b" width={90} />
+            <Tooltip />
+            <ReferenceLine x={0} stroke="#94a3b8" />
+            <Bar dataKey="flow" radius={[6, 6, 6, 6]}>
+              {flow1W.map((d, i) => <Cell key={i} fill={d.flow >= 0 ? "#10b981" : "#f43f5e"} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      <Card className="col-span-5 row-span-4">
+        <SectionTitle sub="ตั้งแต่ต้นปี · ราคาปัจจุบันหักต้นปี">Year-to-Date Return</SectionTitle>
+        <ResponsiveContainer width="100%" height="85%">
+          <BarChart data={ytd}>
+            <defs>
+              <linearGradient id="retGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6366f1" />
+                <stop offset="100%" stopColor="#a855f7" />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="asset" stroke="#64748b" tick={{ fontSize: 10 }} angle={-20} height={45} />
+            <YAxis stroke="#64748b" unit="%" />
+            <Tooltip />
+            <Bar dataKey="ret" fill="url(#retGrad)" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      <Card className="col-span-12 row-span-2">
+        <SectionTitle sub="CoinGecko live · สินทรัพย์อื่นเป็นข้อมูลอ้างอิง">Live Ticker</SectionTitle>
+        <div className="grid grid-cols-6 gap-2 h-full items-stretch">
+          <TickerCard title="BTC" value={live.btc} change={live.btcChange24h} color="amber" live />
+          <TickerCard title="ETH" value={live.eth} change={live.ethChange24h} color="blue" live />
+          <TickerCard title="Total Crypto Cap" value={live.mcap ? `$${(live.mcap/1e12).toFixed(2)}T` : null} change={live.mcapChange24h} color="violet" live />
+          <TickerCard title="Gold (XAU/USD)" value="$2,712" change={+0.4} color="yellow" />
+          <TickerCard title="S&P 500" value="5,284" change={-0.8} color="emerald" />
+          <TickerCard title="US10Y Yield" value="4.12%" change={+0.03} color="rose" unit="bps" />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* =============== PAGE 3 — HISTORICAL =============== */
+const Metric = ({ label, value, tone = "indigo", small }) => (
+  <div className={`rounded-xl bg-gradient-to-br from-${tone}-400 to-${tone}-600 text-white p-2`}>
+    <div className="text-[10px] opacity-80">{label}</div>
+    <div className={`${small ? "text-sm" : "text-xl"} font-black`}>{value}</div>
+  </div>
+);
+
+function PageHistory() {
+  const events = [
+    { year: "1987", name: "Black Monday", drop: -22.6, duration: "1 วัน",
+      cause: "Portfolio insurance + program trading + overvaluation",
+      similarity: 28,
+      keyMatch: ["valuation สูง", "market concentration"],
+      keyDiff: ["ไม่มี AI-driven selling ขนาดนี้ในปัจจุบัน"] },
+    { year: "2000", name: "Dot-com Bust", drop: -49.1, duration: "30 เดือน",
+      cause: "Tech bubble · P/E สูง · capex หายไป",
+      similarity: 64,
+      keyMatch: ["AI capex boom", "ความเข้มข้นใน tech mega-cap", "P/S ratio สูง"],
+      keyDiff: ["กำไรจริงของ Mag-7 แข็งแรงกว่ายุค dot-com"] },
+    { year: "2008", name: "Global Financial Crisis", drop: -56.8, duration: "17 เดือน",
+      cause: "Subprime · leverage · Lehman",
+      similarity: 22,
+      keyMatch: ["credit spreads ค่อยๆ ขยับ"],
+      keyDiff: ["งบธนาคารแข็งแรงกว่ามาก · Basel III"] },
+    { year: "2020", name: "COVID Crash", drop: -33.9, duration: "33 วัน",
+      cause: "Exogenous shock + liquidity freeze",
+      similarity: 18,
+      keyMatch: ["geopolitical tension"],
+      keyDiff: ["ไม่มี pandemic · Fed balance sheet เริ่มลดแล้ว"] },
+    { year: "2022", name: "Inflation Shock", drop: -25.4, duration: "10 เดือน",
+      cause: "Fed hiking + supply shock + yield spike",
+      similarity: 41,
+      keyMatch: ["rate uncertainty", "sticky services CPI"],
+      keyDiff: ["ครั้งนี้อยู่ใน cutting cycle · บวกต่อ duration"] },
+  ];
+  const [selected, setSelected] = useState(1);
+  const s = events[selected];
+
+  return (
+    <div className="grid grid-cols-12 gap-3 h-full">
+      <Card className="col-span-4 flex flex-col">
+        <SectionTitle sub="เรียงตาม similarity ต่อวันนี้">Past Black Swan Events</SectionTitle>
+        <div className="flex-1 space-y-2 overflow-hidden">
+          {events
+            .map((e, i) => ({ ...e, i }))
+            .sort((a, b) => b.similarity - a.similarity)
+            .map((e) => {
+              const active = e.i === selected;
+              return (
+                <button key={e.year} onClick={() => setSelected(e.i)}
+                  className={`w-full text-left rounded-xl p-2 border transition-all ${active ? "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white border-transparent shadow-lg" : "bg-white/70 border-white/60 text-slate-700 hover:bg-white"}`}>
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold">{e.year} · {e.name}</span>
+                    <span className={`text-xs font-black ${active ? "text-white" : "text-rose-600"}`}>{e.similarity}% match</span>
+                  </div>
+                  <div className={`text-xs ${active ? "text-white/90" : "text-slate-500"}`}>drop {e.drop}% · {e.duration}</div>
+                </button>
+              );
+            })}
+        </div>
+      </Card>
+
+      <Card className="col-span-8 flex flex-col">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-xs text-slate-500">Selected event</div>
+            <div className="text-2xl font-black text-slate-800">{s.year} — {s.name}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-slate-500">Similarity to today</div>
+            <div className="text-3xl font-black bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">{s.similarity}%</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 mt-2">
+          <Metric label="Peak→Trough" value={`${s.drop}%`} tone="rose" />
+          <Metric label="Duration" value={s.duration} tone="amber" />
+          <Metric label="Trigger" value={s.cause.split("·")[0]} tone="indigo" small />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mt-3 flex-1 min-h-0">
+          <div className="rounded-xl bg-emerald-50 p-3 border border-emerald-200 overflow-auto">
+            <div className="text-xs font-bold text-emerald-700 mb-1">✓ สิ่งที่เหมือนกับปัจจุบัน</div>
+            <ul className="text-sm text-emerald-900 space-y-1 list-disc pl-4">
+              {s.keyMatch.map((m) => <li key={m}>{m}</li>)}
+            </ul>
+          </div>
+          <div className="rounded-xl bg-rose-50 p-3 border border-rose-200 overflow-auto">
+            <div className="text-xs font-bold text-rose-700 mb-1">✗ สิ่งที่ต่างจากปัจจุบัน</div>
+            <ul className="text-sm text-rose-900 space-y-1 list-disc pl-4">
+              {s.keyDiff.map((m) => <li key={m}>{m}</li>)}
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-2 rounded-xl bg-gradient-to-r from-slate-900 to-slate-700 text-white p-2 text-sm">
+          💡 สาเหตุหลักเดิม: <span className="opacity-90">{s.cause}</span>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* =============== PAGE 4 — ALLOCATION =============== */
+function PageAllocation({ riskScore = 62 }) {
+  const defensive = riskScore >= 60;
+  const alloc = defensive ? [
+    { name: "เงินสด / MMF",            v: 20, color: "#06b6d4", why: "สภาพคล่องรอช็อป" },
+    { name: "พันธบัตรรัฐสั้น (1-3Y)",   v: 18, color: "#22d3ee", why: "Yield 4%+ · ความผันผวนต่ำ" },
+    { name: "พันธบัตรรัฐยาว (10Y+)",    v: 12, color: "#60a5fa", why: "Hedge recession · duration play" },
+    { name: "Investment Grade Credit",   v: 8,  color: "#818cf8", why: "Spread ยังไม่แพง" },
+    { name: "ทองคำ",                     v: 15, color: "#fbbf24", why: "Safe haven · ธนาคารกลางซื้อต่อ" },
+    { name: "หุ้น Quality/Defensive",    v: 12, color: "#a78bfa", why: "Low beta · cash flow แข็งแรง" },
+    { name: "คริปโต (BTC เป็นหลัก)",     v: 5,  color: "#f472b6", why: "Macro hedge · position ขนาดเล็ก" },
+    { name: "Commodities/Energy",         v: 5,  color: "#fb923c", why: "Inflation tail hedge" },
+    { name: "หุ้น Growth/Tech",           v: 5,  color: "#34d399", why: "Underweight แต่ไม่ทิ้ง" },
+  ] : [
+    { name: "หุ้น Global Equity", v: 45, color: "#34d399", why: "Risk-on · cycle ยังมีชีวิต" },
+    { name: "หุ้น EM",             v: 10, color: "#10b981", why: "Valuation ถูก" },
+    { name: "พันธบัตรรัฐ",          v: 15, color: "#60a5fa", why: "สมดุลพอร์ต" },
+    { name: "IG Credit",            v: 8,  color: "#818cf8", why: "Carry" },
+    { name: "ทองคำ",                v: 7,  color: "#fbbf24", why: "Diversifier" },
+    { name: "คริปโต",               v: 5,  color: "#f472b6", why: "Satellite" },
+    { name: "Commodities",          v: 5,  color: "#fb923c", why: "Inflation sleeve" },
+    { name: "เงินสด",               v: 5,  color: "#06b6d4", why: "Dry powder" },
+  ];
+
+  return (
+    <div className="grid grid-cols-12 gap-3 h-full">
+      <Card className="col-span-5 flex flex-col">
+        <SectionTitle sub={`Risk score: ${riskScore} → โหมด ${defensive ? "DEFENSIVE" : "RISK-ON"}`}>Recommended Allocation</SectionTitle>
+        <div className="flex-1 min-h-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={alloc} dataKey="v" nameKey="name" innerRadius="50%" outerRadius="90%" paddingAngle={2}>
+                {alloc.map((a, i) => <Cell key={i} fill={a.color} />)}
+              </Pie>
+              <Tooltip formatter={(v) => `${v}%`} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="text-center -mt-6 mb-2">
+          <div className={`inline-block px-3 py-1 rounded-full text-sm font-bold text-white bg-gradient-to-r ${defensive ? "from-rose-500 to-orange-500" : "from-emerald-500 to-teal-500"}`}>
+            {defensive ? "⚠️ DEFENSIVE MODE" : "🚀 RISK-ON MODE"}
+          </div>
+        </div>
+      </Card>
+
+      <Card className="col-span-7">
+        <SectionTitle sub="เหตุผลรายสินทรัพย์ · ใช้เป็นกรอบปรับพอร์ต">เหตุผล & สัดส่วน</SectionTitle>
+        <div className="grid grid-cols-2 gap-2">
+          {alloc.map((a) => (
+            <div key={a.name} className="rounded-xl p-2 border border-white/60 bg-white/60">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full" style={{ background: a.color }} />
+                <span className="text-sm font-bold text-slate-800 flex-1">{a.name}</span>
+                <span className="text-lg font-black text-slate-900">{a.v}%</span>
+              </div>
+              <div className="text-[11px] text-slate-600 mt-0.5">{a.why}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 rounded-xl bg-gradient-to-r from-amber-100 to-rose-100 border border-amber-200 p-2 text-xs text-slate-700">
+          ⚠️ <b>Disclaimer:</b> สัดส่วนข้างต้นเป็นตัวอย่างเชิง framework เท่านั้น ไม่ใช่คำแนะนำการลงทุนเฉพาะบุคคล · ควรปรับตาม risk tolerance, horizon และภาษีของคุณ
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* =============== PAGE 5 — CYCLE =============== */
+const Signal = ({ on, off, mid, text }) => {
+  const color = on ? "rose" : mid ? "amber" : "slate";
+  const icon = on ? "🔴" : mid ? "🟡" : "⚪";
+  return (
+    <div className={`flex items-start gap-2 text-${color}-800`}>
+      <span>{icon}</span>
+      <span className="flex-1">{text}</span>
+    </div>
+  );
+};
+
+function PageCycle() {
+  const phases = [
+    { name: "Accumulation", color: "#10b981", desc: "ตลาดหมีใกล้จบ · smart money เริ่มซื้อ" },
+    { name: "Markup",       color: "#84cc16", desc: "Bull market · FOMO · margin debt ขึ้น" },
+    { name: "Distribution", color: "#f59e0b", desc: "Top formation · volatility เริ่มขยับ" },
+    { name: "Markdown",     color: "#ef4444", desc: "Bear market · deleveraging" },
+  ];
+  const current = 2;
+  const positionPct = 68;
+  const cycle = Array.from({ length: 100 }, (_, i) => ({
+    x: i, y: 50 + 40 * Math.sin((i / 100) * Math.PI * 2 - Math.PI / 2),
+  }));
+  const currentX = 25 + positionPct * 0.5;
+  const analogs = [
+    { label: "2000 Q1", x: 70, tone: "#a855f7" },
+    { label: "2007 Q3", x: 66, tone: "#f43f5e" },
+    { label: "2021 Q4", x: 62, tone: "#3b82f6" },
+    { label: "Today",   x: currentX, tone: "#fbbf24" },
+  ];
+
+  return (
+    <div className="grid grid-cols-12 grid-rows-6 gap-3 h-full">
+      <div className="col-span-12 row-span-2 grid grid-cols-4 gap-3">
+        {phases.map((p, i) => {
+          const active = i === current;
+          return (
+            <div key={p.name}
+              className={`rounded-2xl p-3 border-2 transition-all ${active ? "border-yellow-400 shadow-xl scale-105" : "border-white/40 opacity-70"}`}
+              style={{ background: `linear-gradient(135deg, ${p.color}, ${p.color}dd)` }}>
+              <div className="text-white/80 text-xs font-bold">Phase {i + 1}</div>
+              <div className="text-white text-xl font-black">{p.name}</div>
+              <div className="text-white/90 text-xs mt-1">{p.desc}</div>
+              {active && <div className="mt-1 bg-white/30 rounded-full px-2 py-0.5 text-white text-xs font-bold inline-block">📍 YOU ARE HERE ({positionPct}%)</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      <Card className="col-span-8 row-span-4">
+        <SectionTitle sub="จุดสีเหลือง = ปัจจุบัน · จุดอื่น = top ของเหตุการณ์ประวัติศาสตร์">Market Cycle Map · Today vs Past Tops</SectionTitle>
+        <ResponsiveContainer width="100%" height="85%">
+          <AreaChart data={cycle}>
+            <defs>
+              <linearGradient id="cycGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.8} />
+                <stop offset="100%" stopColor="#a855f7" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="x" hide />
+            <YAxis hide domain={[0, 100]} />
+            <Area type="monotone" dataKey="y" stroke="#7c3aed" strokeWidth={3} fill="url(#cycGrad)" />
+            {analogs.map((a) => (
+              <ReferenceLine key={a.label} x={a.x} stroke={a.tone} strokeWidth={2} strokeDasharray="4 4"
+                label={{ value: a.label, position: "top", fill: a.tone, fontWeight: "bold", fontSize: 11 }} />
+            ))}
+          </AreaChart>
+        </ResponsiveContainer>
+      </Card>
+
+      <Card className="col-span-4 row-span-4">
+        <SectionTitle sub="สัญญาณยืนยันตำแหน่งใน cycle">Cycle Signals</SectionTitle>
+        <div className="space-y-1.5 text-sm">
+          <Signal on text="หุ้นใหญ่ไม่กี่ตัวขับตลาด (narrow breadth)" />
+          <Signal on text="Margin debt ใกล้ all-time high" />
+          <Signal on text="IPO/SPAC activity พุ่งแรง" />
+          <Signal on text="P/E > ค่าเฉลี่ยระยะยาว 1.5 SD" />
+          <Signal on text="Volatility ถูกกด (vol-selling)" />
+          <Signal mid text="Yield curve เริ่ม steepen จาก inverted" />
+          <Signal mid text="Credit spread ขยับขึ้นช้าๆ" />
+          <Signal off text="Fed กำลัง cut (bullish phase extender)" />
+          <Signal off text="Household cash allocation สูง" />
+        </div>
+        <div className="mt-2 rounded-xl bg-gradient-to-r from-amber-400 to-rose-500 text-white p-2 text-xs">
+          📊 สรุป: ตลาดอยู่ในช่วง <b>Late-cycle Distribution</b> · ใกล้เคียง 2000 & 2007 มากกว่า 1987 · Window ปกติ 3-12 เดือนก่อน markdown
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* =============== APP =============== */
+const ApiRow = ({ status, name, covers, link, note }) => {
+  const badge = status === "live" ? { c: "emerald", l: "LIVE" }
+              : status === "todo" ? { c: "amber", l: "TODO" }
+              :                     { c: "rose", l: "CORS" };
+  return (
+    <div className="flex items-start gap-2 border-b border-slate-100 pb-2">
+      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold bg-${badge.c}-100 text-${badge.c}-700 flex-none mt-0.5`}>{badge.l}</span>
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-slate-800">{name}</span>
+          <a href={link} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">เปิดลิงก์</a>
+        </div>
+        <div className="text-xs text-slate-600">ใช้สำหรับ: {covers}</div>
+        <div className="text-xs text-slate-500 italic">{note}</div>
+      </div>
+    </div>
+  );
+};
+
+function BlackSwanDashboard() {
+  const [page, setPage] = useState(0);
+  const [live, setLive] = useState({});
+  const [apiStatus, setApiStatus] = useState("loading");
+  const [showApiInfo, setShowApiInfo] = useState(false);
+
+  useEffect(() => {
+    let cancel = false;
+    async function load() {
+      try {
+        const [simple, global] = await Promise.all([
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true").then(r => r.json()),
+          fetch("https://api.coingecko.com/api/v3/global").then(r => r.json()),
+        ]);
+        let fearGreed = null, fearGreedLabel = null;
+        try {
+          const fg = await fetch("https://api.alternative.me/fng/?limit=1").then(r => r.json());
+          fearGreed = parseInt(fg.data?.[0]?.value, 10);
+          fearGreedLabel = fg.data?.[0]?.value_classification;
+        } catch (e) {}
+        if (cancel) return;
+        setLive({
+          btc: simple.bitcoin?.usd ? `$${simple.bitcoin.usd.toLocaleString()}` : null,
+          btcChange24h: simple.bitcoin?.usd_24h_change,
+          btcChange7d: simple.bitcoin?.usd_24h_change,
+          btcChange1y: null,
+          eth: simple.ethereum?.usd ? `$${simple.ethereum.usd.toLocaleString()}` : null,
+          ethChange24h: simple.ethereum?.usd_24h_change,
+          mcap: global.data?.total_market_cap?.usd,
+          mcapChange24h: global.data?.market_cap_change_percentage_24h_usd,
+          fearGreed, fearGreedLabel,
+        });
+        setApiStatus("ok");
+      } catch (e) {
+        setApiStatus("error");
+      }
+    }
+    load();
+    const t = setInterval(load, 60_000);
+    return () => { cancel = true; clearInterval(t); };
+  }, []);
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key >= "1" && e.key <= "5") setPage(parseInt(e.key, 10) - 1);
+      if (e.key === "ArrowRight") setPage((p) => (p + 1) % PAGES.length);
+      if (e.key === "ArrowLeft") setPage((p) => (p - 1 + PAGES.length) % PAGES.length);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const PageEl = [PageAlert, PageFlow, PageHistory, PageAllocation, PageCycle][page];
+
+  return (
+    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-violet-300 via-pink-200 to-amber-200 font-sans flex flex-col">
+      <header className="flex-none px-4 py-2 flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-900 to-violet-700 flex items-center justify-center text-white text-xl shadow-lg">🦢</div>
+          <div>
+            <div className="text-xl font-black text-slate-800 leading-none">Black Swan Monitor</div>
+            <div className="text-[10px] text-slate-600">Cross-asset risk & allocation console</div>
+          </div>
+        </div>
+        <nav className="flex-1 flex justify-center gap-1">
+          {PAGES.map((p, i) => (
+            <button key={p.id} onClick={() => setPage(i)}
+              className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${page === i ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg scale-105" : "bg-white/60 text-slate-700 hover:bg-white"}`}>
+              <span className="mr-1">{p.icon}</span>{p.short}
+            </button>
+          ))}
+        </nav>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowApiInfo(true)} className="text-xs px-2 py-1 rounded-lg bg-white/70 text-slate-700 font-bold hover:bg-white">🔌 API</button>
+          <div className={`text-[10px] px-2 py-1 rounded-full font-bold ${apiStatus === "ok" ? "bg-emerald-500 text-white" : apiStatus === "loading" ? "bg-amber-400 text-white" : "bg-rose-500 text-white"}`}>
+            {apiStatus === "ok" ? "● LIVE" : apiStatus === "loading" ? "● SYNC" : "● OFFLINE"}
+          </div>
+          <div className="text-[10px] text-slate-600 font-mono hidden md:block">keys: 1-5 / ← →</div>
+        </div>
+      </header>
+
+      <main className="flex-1 min-h-0 px-4 pb-4">
+        <div className="h-full"><PageEl live={live} /></div>
+      </main>
+
+      {showApiInfo && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur flex items-center justify-center z-50 p-6" onClick={() => setShowApiInfo(false)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <div className="text-xl font-black text-slate-800">🔌 Data sources</div>
+                <div className="text-xs text-slate-500">API ที่ใช้ / ที่ต้องเติมเพิ่มเอง</div>
+              </div>
+              <button onClick={() => setShowApiInfo(false)} className="text-slate-500 hover:text-slate-800 text-xl">✕</button>
+            </div>
+            <div className="space-y-2 text-sm">
+              <ApiRow status="live" name="CoinGecko" covers="BTC/ETH price, global crypto cap" link="https://www.coingecko.com/en/api/documentation" note="ฟรี, ไม่ต้อง key" />
+              <ApiRow status="live" name="Alternative.me Fear & Greed" covers="Crypto Fear & Greed Index" link="https://alternative.me/crypto/fear-and-greed-index/" note="ฟรี, ไม่ต้อง key" />
+              <ApiRow status="todo" name="FRED (St. Louis Fed)" covers="Yield curve, CPI, unemployment, M2" link="https://fred.stlouisfed.org/docs/api/api_key.html" note="สมัครฟรีขอ key" />
+              <ApiRow status="todo" name="Alpha Vantage" covers="S&P500, VIX, FX, Gold" link="https://www.alphavantage.co/support/#api-key" note="ฟรี 25 calls/day" />
+              <ApiRow status="todo" name="Financial Modeling Prep" covers="Stocks, bonds, ETF flows" link="https://site.financialmodelingprep.com/developer/docs" note="Free tier จำกัด" />
+              <ApiRow status="cors" name="Yahoo Finance" covers="Historical prices" link="https://github.com/public-apis/public-apis" note="CORS block · ต้อง proxy" />
+              <ApiRow status="todo" name="Polygon.io" covers="Stocks, options flow" link="https://polygon.io/" note="Free 5 calls/min" />
+            </div>
+            <div className="mt-4 rounded-xl bg-slate-100 p-3 text-xs text-slate-700">
+              💡 <b>วิธีเพิ่ม API key:</b> สร้างไฟล์ <code>.env</code> ใส่ <code>VITE_FRED_KEY=xxx</code> แล้วแก้ useEffect เพิ่ม fetch
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<BlackSwanDashboard />);
+</script>
+</body>
+</html>
